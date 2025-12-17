@@ -1,7 +1,3 @@
-
-
-
-
 package com.CooperativeDevelopmentManagementSystem.DCDSystem.config;
 
 import com.CooperativeDevelopmentManagementSystem.DCDSystem.security.AuthEntryPointJwt;
@@ -11,6 +7,7 @@ import com.CooperativeDevelopmentManagementSystem.DCDSystem.service.UserDetailsS
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -29,6 +26,8 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -41,6 +40,12 @@ public class WebSecurityConfig {
     private final UserDetailsServiceImpl userDetailsService;
     private final AuthEntryPointJwt unauthorizedHandler;
     private final JwtUtils jwtUtils;
+
+    @Value("${app.base-url:http://localhost:5173}")
+    private String baseUrl;
+
+    @Value("${app.frontend-url:https://cdc-ams.netlify.app}")
+    private String frontendUrl;
 
     @Bean
     public AuthTokenFilter authenticationJwtTokenFilter() {
@@ -68,13 +73,13 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // 🔴 FIX 1: Configure CORS first, then disable CSRF
+                // Configure CORS first, then disable CSRF
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // 🔴 FIX 2: Public endpoints - MUST BE FIRST IN ORDER
+                        // Public endpoints - MUST BE FIRST IN ORDER
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/districts/**").permitAll()
 
@@ -105,26 +110,44 @@ public class WebSecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // 🔴 FIX 3: Properly configure allowed origins
-        configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:5173",
-                "http://localhost:5174",
-                "http://localhost:3000"
-        ));
+        // Build list of allowed origins dynamically
+        List<String> allowedOrigins = new ArrayList<>();
 
-        // 🔴 FIX 4: Allow all necessary HTTP methods including OPTIONS
+        // Add local development URLs
+        allowedOrigins.add("http://localhost:5173");
+        allowedOrigins.add("http://localhost:5174");
+        allowedOrigins.add("http://localhost:3000");
+
+        // Add base URL if it's not localhost
+        if (baseUrl != null && !baseUrl.isEmpty() && !baseUrl.startsWith("http://localhost")) {
+            allowedOrigins.add(baseUrl);
+            log.info("Added base URL to CORS: {}", baseUrl);
+        }
+
+        // Add frontend URL if it's not localhost and different from base URL
+        if (frontendUrl != null && !frontendUrl.isEmpty() &&
+                !frontendUrl.startsWith("http://localhost") &&
+                !frontendUrl.equals(baseUrl)) {
+            allowedOrigins.add(frontendUrl);
+            log.info("Added frontend URL to CORS: {}", frontendUrl);
+        }
+
+        configuration.setAllowedOrigins(allowedOrigins);
+        log.info("CORS allowed origins: {}", allowedOrigins);
+
+        // Allow all necessary HTTP methods including OPTIONS
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
 
-        // 🔴 FIX 5: Allow all headers
+        // Allow all headers
         configuration.setAllowedHeaders(Arrays.asList("*"));
 
-        // 🔴 FIX 6: Enable credentials
+        // Enable credentials
         configuration.setAllowCredentials(true);
 
-        // 🔴 FIX 7: Expose Authorization header
+        // Expose Authorization header
         configuration.setExposedHeaders(Arrays.asList("Authorization"));
 
-        // 🔴 FIX 8: Cache preflight requests for 1 hour
+        // Cache preflight requests for 1 hour
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
