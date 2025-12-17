@@ -44,7 +44,7 @@ public class WebSecurityConfig {
     @Value("${app.base-url:http://localhost:5173}")
     private String baseUrl;
 
-    @Value("${app.frontend-url:https://cdc-ams.netlify.app}")
+    @Value("${app.frontend-url:https://ams-cdc.netlify.app}")
     private String frontendUrl;
 
     @Bean
@@ -155,3 +155,4 @@ public class WebSecurityConfig {
         return source;
     }
 }
+
